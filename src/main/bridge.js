@@ -43,7 +43,12 @@ function createBridge({ port, onEvent, onDebug }) {
     // Refusing those keeps random web pages from puppeting Capri.
     if (req.headers.origin) return send(res, 403, { ok: false });
 
-    const url = new URL(req.url, 'http://127.0.0.1');
+    let url;
+    try {
+      url = new URL(req.url, 'http://127.0.0.1');
+    } catch {
+      return send(res, 400, { ok: false, error: 'invalid url' });
+    }
 
     if (req.method === 'GET' && url.pathname === '/health') {
       return send(res, 200, { ok: true, name: 'capri', pid: process.pid });
