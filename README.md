@@ -1,6 +1,8 @@
-**English** · [Français](README.fr.md)
+**English**
 
 # Capri
+
+This repository is a fork of [mochiiwuff/capri-desktop](https://github.com/mochiiwuff/capri-desktop). Download links below point to upstream releases; the source instructions build this fork.
 
 Capri, the *Project Capricorn* construct from Cyberpunk: Edgerunners season 2, lives on your desktop
 and tells you what your coding AI is up to: **Claude Code**, **Codex** or **Antigravity**. She teleports,
@@ -133,8 +135,7 @@ The first time, she sets it up with you, with buttons, no terminal:
   nonsense and offers a better one.
 - **Online, no account**: Pollinations, nothing to set up.
 - **I have a key**: Groq or Gemini (both have a free tier), OpenRouter, OpenAI, Mistral or DeepSeek. You paste your
-  key in her panel and she checks it. It's kept on your PC, encrypted with your Windows account, and only ever sent to
-  that service.
+  key in her panel and she checks it. It is kept on your PC using Electron's encrypted storage when available (see the storage limitations below), and sent to that service with API requests.
 
 Her menu › **AI model** lets you switch later: **Set it up with her…**, or straight to a service and a model, LM Studio
 (`:1234`), llama.cpp or vLLM (`:8080`), any OpenAI-compatible server (**API key or address…**), or **Claude Code**
@@ -158,7 +159,7 @@ panel says so every time.
   hid in the tray, she offers **Force quit**, again only on your click (unsaved work is lost then). She never closes
   Windows' own pieces, Claude, Ollama or herself.
 
-Nothing else: she can't see your screen or your files.
+The desktop overlay does not read screen contents. Choosing **Claude Code** as the chat provider runs a coding agent in the selected folder; its file access and edits follow its permission mode. Review that folder and mode before using it.
 
 ### Make her yours
 
@@ -214,12 +215,12 @@ asleep. You can just leave her there.
 
 ### From the source (macOS, Linux, developers)
 
-You need [Node.js](https://nodejs.org) 20 or newer.
+Use [Node.js](https://nodejs.org) 24, or at least 22.12.0. Although `package.json` declares Node.js `>=20`, the locked Electron and rebuild tools require `>=22.12.0`; Node.js 20 does not satisfy the development toolchain.
 
 ```bash
-git clone https://github.com/mochiiwuff/capri-desktop.git
+git clone https://github.com/t91a60/capri-desktop.git
 cd capri-desktop
-npm install
+npm ci
 npm start
 ```
 
@@ -238,7 +239,7 @@ npm run hooks:install
 This adds a hook to `~/.claude/settings.json` (a backup is written next to it, your existing hooks are kept).
 Restart your Claude Code sessions afterwards. To remove it: `npm run hooks:uninstall`.
 
-The hooks run `async`: they never slow Claude down, and when Capri isn't running they do nothing.
+Claude Code hooks are registered as asynchronous. When Capri is not running, event delivery is best effort and connection errors are ignored.
 
 ### Codex or Antigravity instead of Claude Code
 
@@ -246,7 +247,7 @@ Right-click her › **Watch** › **Codex** or **Antigravity**. She says hi and 
 for Claude Code. Then:
 
 - **Codex**: restart it and trust her hooks when it asks. They go in `~/.codex/hooks.json`. Her hook for Codex needs
-  [Node.js](https://nodejs.org) 20 or newer on your PATH.
+  [Node.js](https://nodejs.org) on your PATH. Use the source prerequisites above when installing this project.
 - **Antigravity**: start a new conversation. Her hooks go in `~/.gemini/config/hooks.json`.
 
 She follows one of them at a time, the one picked in her menu, and her lines, her guide and her chat use its name.
@@ -293,11 +294,11 @@ named like this (`.mp3`, `.wav`, `.ogg` or `.m4a`):
 ## Is it safe?
 
 - All of the code is right here. The installer is built from it with `npm run dist`; you can build your own.
-- Nothing leaves your PC (see below): she only talks to Claude Code through a hook on `127.0.0.1`.
+- Assistant hooks send events to a local bridge on `127.0.0.1`. Chat has separate network behavior: see [What leaves your machine](#what-leaves-your-machine).
 - What she changes on your system: the hook in `~/.claude/settings.json` (a backup is written first, and you can remove
   it from her menu), and a startup entry only if you tick "Start with Windows". She uninstalls like any app, from
   Windows Settings › Apps.
-- The SmartScreen warning comes from the installer not being signed, not from anything it does.
+- The installer is unsigned. A SmartScreen prompt does not establish whether a particular download is trustworthy; review the source and release origin before running it.
 
 ## FAQ
 
@@ -321,12 +322,27 @@ named like this (`.mp3`, `.wav`, `.ogg` or `.m4a`):
 
 ## What leaves your machine
 
-Nothing. The hook only keeps what the display needs (tool name, file path, command, the start of your prompt,
+The Claude Code hook keeps what the display needs (tool name, file path, command, the start of your prompt,
 Claude's last message up to 6,000 characters so she can show it to you, all truncated) and sends it to `127.0.0.1` only.
 Your file contents are never sent: for a write, only its size goes through.
 
-Her chat goes to Ollama on your PC (`127.0.0.1:11434`, or `OLLAMA_HOST`) with what she knows of the moment (the
-project's name, Claude's last action, today's counts). Her mission log stays in her own storage on your PC.
+Chat sends messages, conversation history and the context assembled by the app to the selected provider. That context can include the project name, assistant activity, user preferences and remembered details. Ollama defaults to `127.0.0.1:11434`, but `OLLAMA_HOST` can select a remote server. LM Studio and llama.cpp/vLLM presets use loopback addresses. Pollinations and the hosted API providers send requests over the network; a custom URL may also be remote. Do not include private project information when using an untrusted provider.
+
+The **Claude Code** chat provider starts `claude -p` in the configured folder and uses Claude Code's own account, network behavior and permissions. `acceptEdits` permits file edits without an interactive approval prompt. Assistant hooks, chat providers and local desktop actions are separate integrations.
+
+Settings and mission data are stored in Electron's application data directory. API keys entered in the app use Electron `safeStorage` when encryption is available; the implementation falls back to storing the key as plain text when it is unavailable. Protect that directory and avoid sharing configuration files. Keys can also come from provider-specific environment variables such as `OPENAI_API_KEY` or `GROQ_API_KEY`.
+
+### Configuration and development checks
+
+No API key is required for the overlay and assistant hooks. Configure optional chat through **AI model** in the menu. `CAPRI_PORT` changes the local bridge port (default `47823`); set it consistently for Capri and hook processes. `OLLAMA_HOST` changes the Ollama endpoint. `CODEX_HOME` and `AGY_CONFIG_DIR` select the corresponding hook configuration directories.
+
+```bash
+npm run test:hooks
+npm run check:llm  # live Pollinations + Claude Code diagnostic
+npm run dev
+```
+
+The hook tests use Node's test runner. They exercise Codex and Antigravity adapters and installers; they do not verify the Electron UI, animation, Windows integration or live provider responses. `npm run check:llm` contacts Pollinations and runs live Claude Code prompts; it requires network access and an authenticated `claude` command. It is not an offline unit test.
 
 ## Art direction
 
@@ -387,6 +403,7 @@ If Windows is set to "Show animations: off", she sticks to fades.
 ## How it's built
 
 ```
+hooks/                  Claude Code, Codex and Antigravity event adapters
 hooks/capri-hook.js      run by Claude Code, reads the event on stdin and posts it to the app
 scripts/install-hooks.js adds / removes the hook in ~/.claude/settings.json
 tools/build-sprite.py    rebuilds the sprite from the original cut-out (Python + Pillow, only if you change it)
@@ -394,7 +411,9 @@ tools/build-cutins.py    cuts the cut-ins and her faces out of frames of the sho
 tools/build-intro.py     cuts her intro's close-ups out of their background, all the same way
 src/main/                Electron: full-screen transparent click-through window, tray, local HTTP bridge
   windows.js / .ps1      where the other windows are (Windows only), so she can sit on them
-  ollama.js              her chat: the local model, through Ollama
+  llm.js                 chat provider routing, streaming and Claude Code integration
+  ollama.js              Ollama API client (local by default)
+  setup.js               provider setup and API-key storage
   apps.js                closing an app you asked her to close (after your click)
 src/renderer/js/
   sprite.js              WebGL shader: head tilt, mane flare, sitting, smears, afterimages, colors, glitch
