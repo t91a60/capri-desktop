@@ -215,7 +215,7 @@ asleep. You can just leave her there.
 
 ### From the source (macOS, Linux, developers)
 
-You need [Node.js](https://nodejs.org) 20 or newer.
+Use [Node.js](https://nodejs.org) 24, or at least 22.12.0. Although `package.json` declares Node.js `>=20`, the locked Electron and rebuild tools require `>=22.12.0`; Node.js 20 does not satisfy the development toolchain.
 
 ```bash
 git clone https://github.com/t91a60/capri-desktop.git
@@ -247,7 +247,7 @@ Right-click her › **Watch** › **Codex** or **Antigravity**. She says hi and 
 for Claude Code. Then:
 
 - **Codex**: restart it and trust her hooks when it asks. They go in `~/.codex/hooks.json`. Her hook for Codex needs
-  [Node.js](https://nodejs.org) 20 or newer on your PATH.
+  [Node.js](https://nodejs.org) on your PATH. Use the source prerequisites above when installing this project.
 - **Antigravity**: start a new conversation. Her hooks go in `~/.gemini/config/hooks.json`.
 
 She follows one of them at a time, the one picked in her menu, and her lines, her guide and her chat use its name.
